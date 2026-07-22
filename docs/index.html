@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NSE Market Breadth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:            #0B0E11;
+    --panel:         #12161C;
+    --panel-2:       #171C24;
+    --border:        #232933;
+    --text:          #E8EAED;
+    --muted:         #7C8798;
+    --bull:          #3DDC97;
+    --bear:          #FF5C5C;
+    --amber:         #F5B942;
+    --amber-dim:     rgba(245,185,66,0.14);
+    --bull-dim:      rgba(61,220,151,0.12);
+    --bear-dim:      rgba(255,92,92,0.12);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{font-family:'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums;}
+  h1,h2,h3{font-family:'Space Grotesk', sans-serif; margin:0;}
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 28px; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:rgba(11,14,17,0.92); backdrop-filter:blur(8px); z-index:10;
+  }
+  header .brand{display:flex; align-items:center; gap:12px;}
+  header .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--bull);box-shadow:0 0 10px var(--bull);}
+  header h1{font-size:19px; letter-spacing:0.2px;}
+  header .sub{color:var(--muted); font-size:12.5px; margin-top:2px;}
+  #asof{font-size:13px; color:var(--muted);}
+  #asof b{color:var(--text); font-family:'IBM Plex Mono', monospace;}
+
+  main{max-width:1180px; margin:0 auto; padding:28px;}
+
+  .kpis{display:grid; grid-template-columns:repeat(7,1fr); gap:12px; margin-bottom:22px;}
+  @media (max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr);}}
+  .kpi{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:14px 14px 12px;
+  }
+  .kpi .label{font-size:10.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); margin-bottom:8px;}
+  .kpi .value{font-size:22px; font-weight:600;}
+  .kpi .value.bull{color:var(--bull);}
+  .kpi .value.bear{color:var(--bear);}
+  .kpi .value.amber{color:var(--amber);}
+
+  .gauge-panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:20px 22px; margin-bottom:22px;
+  }
+  .gauge-panel .title{font-size:13px; color:var(--muted); margin-bottom:14px; display:flex; justify-content:space-between; align-items:baseline;}
+  .gauge-panel .title .verdict{font-family:'Space Grotesk',sans-serif; font-size:15px; font-weight:600; color:var(--text);}
+  .gauge-track{position:relative; height:10px; border-radius:6px; margin:6px 0 8px;
+    background:linear-gradient(90deg, var(--bear) 0%, #8a5b3f 20%, var(--muted) 45%, var(--muted) 55%, #5b8a6f 80%, var(--bull) 100%);
+  }
+  .gauge-marker{
+    position:absolute; top:-5px; width:2px; height:20px; background:var(--text);
+    box-shadow:0 0 8px rgba(255,255,255,0.6);
+  }
+  .gauge-labels{display:flex; justify-content:space-between; font-size:10.5px; color:var(--muted); font-family:'IBM Plex Mono',monospace;}
+
+  .charts{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px;}
+  @media (max-width:900px){.charts{grid-template-columns:1fr;}}
+  .chart-card{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px;}
+  .chart-card h3{font-size:13px; color:var(--muted); font-weight:500; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;}
+  .chart-card canvas{max-height:230px;}
+
+  .tables{display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
+  @media (max-width:900px){.tables{grid-template-columns:1fr;}}
+  .table-card{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; overflow:hidden;}
+  .table-card h3{font-size:13px; font-weight:500; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;}
+  .table-card h3 .count{font-family:'IBM Plex Mono',monospace; color:var(--muted); font-size:11.5px;}
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th{text-align:left; color:var(--muted); font-weight:500; font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px; padding:6px 4px; border-bottom:1px solid var(--border);}
+  td{padding:6px 4px; border-bottom:1px solid rgba(35,41,51,0.6); font-family:'IBM Plex Mono',monospace;}
+  tr:last-child td{border-bottom:none;}
+  .chg-pos{color:var(--bull);}
+  .chg-neg{color:var(--bear);}
+  .empty-row td{color:var(--muted); font-family:'IBM Plex Sans',sans-serif; text-align:center; padding:16px 4px;}
+
+  #error-banner{
+    display:none; background:var(--bear-dim); border:1px solid var(--bear); color:var(--bear);
+    padding:12px 16px; border-radius:8px; margin-bottom:20px; font-size:13px; line-height:1.5;
+  }
+  #error-banner code{background:rgba(0,0,0,0.3); padding:1px 5px; border-radius:4px;}
+
+  footer{text-align:center; color:var(--muted); font-size:11.5px; padding:30px 20px 40px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="dot"></span>
+    <div>
+      <h1>NSE Market Breadth</h1>
+      <div class="sub">All NSE mainboard equities &middot; updated after daily close</div>
+    </div>
+  </div>
+  <div id="asof">As of <b id="asof-date">&mdash;</b></div>
+</header>
+
+<main>
+  <div id="error-banner"></div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="gauge-panel">
+    <div class="title">
+      <span>BREADTH THERMOMETER &middot; % of stocks above 50-day average</span>
+      <span class="verdict" id="verdict">&mdash;</span>
+    </div>
+    <div class="gauge-track"><div class="gauge-marker" id="gauge-marker" style="left:50%"></div></div>
+    <div class="gauge-labels">
+      <span>0 &middot; Extreme weakness</span>
+      <span>50 &middot; Neutral</span>
+      <span>100 &middot; Extreme strength</span>
+    </div>
+  </section>
+
+  <section class="charts">
+    <div class="chart-card">
+      <h3>% Above Moving Averages</h3>
+      <canvas id="chart-dma"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>New 52-Week Highs vs Lows</h3>
+      <canvas id="chart-hilo"></canvas>
+    </div>
+  </section>
+
+  <section class="charts">
+    <div class="chart-card">
+      <h3>Advance / Decline (daily counts)</h3>
+      <canvas id="chart-ad"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Momentum Burst &middot; Net stocks &plusmn;4% (daily)</h3>
+      <canvas id="chart-momentum"></canvas>
+    </div>
+  </section>
+
+  <section class="tables">
+    <div class="table-card">
+      <h3>Top Gainers <span class="count" id="cnt-gainers"></span></h3>
+      <table><thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th></tr></thead><tbody id="tbl-gainers"></tbody></table>
+    </div>
+    <div class="table-card">
+      <h3>Top Losers <span class="count" id="cnt-losers"></span></h3>
+      <table><thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th></tr></thead><tbody id="tbl-losers"></tbody></table>
+    </div>
+    <div class="table-card">
+      <h3>New 52-Week Highs <span class="count" id="cnt-highs"></span></h3>
+      <table><thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th></tr></thead><tbody id="tbl-highs"></tbody></table>
+    </div>
+    <div class="table-card">
+      <h3>New 52-Week Lows <span class="count" id="cnt-lows"></span></h3>
+      <table><thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th></tr></thead><tbody id="tbl-lows"></tbody></table>
+    </div>
+    <div class="table-card">
+      <h3>Up &ge;4% Today (Momentum Burst) <span class="count" id="cnt-up4"></span></h3>
+      <table><thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th></tr></thead><tbody id="tbl-up4"></tbody></table>
+    </div>
+    <div class="table-card">
+      <h3>Down &ge;4% Today <span class="count" id="cnt-down4"></span></h3>
+      <table><thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th></tr></thead><tbody id="tbl-down4"></tbody></table>
+    </div>
+  </section>
+
+  <footer>
+    Data sourced from NSE daily bhavcopy (mainboard EQ/BE series). Not investment advice &mdash; for personal research use.
+  </footer>
+</main>
+
+<script>
+const CHART_COLORS = {
+  bull: '#3DDC97', bear: '#FF5C5C', amber: '#F5B942', muted: '#7C8798', grid: 'rgba(255,255,255,0.06)'
+};
+Chart.defaults.color = CHART_COLORS.muted;
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 11;
+
+async function loadJSON(path){
+  const res = await fetch(path + '?_=' + Date.now());
+  if(!res.ok) throw new Error('HTTP ' + res.status + ' fetching ' + path);
+  return res.json();
+}
+
+function fmtPct(v){ return (v===null||v===undefined||isNaN(v)) ? '&mdash;' : (v>0?'+':'') + v.toFixed(2) + '%'; }
+function chgClass(v){ return v>0 ? 'chg-pos' : (v<0 ? 'chg-neg' : ''); }
+
+function fillTable(bodyId, countId, rows){
+  const body = document.getElementById(bodyId);
+  document.getElementById(countId).textContent = rows.length;
+  if(!rows.length){
+    body.innerHTML = '<tr class="empty-row"><td colspan="3">None today</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.symbol}</td>
+      <td>${r.close?.toFixed ? r.close.toFixed(2) : r.close}</td>
+      <td class="${chgClass(r.pct_chg)}">${fmtPct(r.pct_chg)}</td>
+    </tr>`).join('');
+}
+
+function kpiCard(label, value, cls){
+  return `<div class="kpi"><div class="label">${label}</div><div class="value ${cls||''}">${value}</div></div>`;
+}
+
+function renderKPIs(s){
+  const el = document.getElementById('kpis');
+  el.innerHTML = [
+    kpiCard('Advances', s.advances, 'bull'),
+    kpiCard('Declines', s.declines, 'bear'),
+    kpiCard('A/D Ratio', s.ad_ratio ?? '&mdash;'),
+    kpiCard('% Above 50DMA', (s.pct_above_50dma ?? '&mdash;') + (s.pct_above_50dma!=null?'%':''), s.pct_above_50dma>50?'bull':'bear'),
+    kpiCard('% Above 200DMA', (s.pct_above_200dma ?? '&mdash;') + (s.pct_above_200dma!=null?'%':''), s.pct_above_200dma>50?'bull':'bear'),
+    kpiCard('New Hi / Lo', s.new_highs_count + ' / ' + s.new_lows_count, s.new_highs_count>=s.new_lows_count?'bull':'bear'),
+    kpiCard('Net &plusmn;4% Movers', (s.net_4pct>0?'+':'') + s.net_4pct, s.net_4pct>0?'bull':(s.net_4pct<0?'bear':'amber')),
+  ].join('');
+}
+
+function renderGauge(pct){
+  const marker = document.getElementById('gauge-marker');
+  const verdict = document.getElementById('verdict');
+  const p = (pct===null||pct===undefined) ? 50 : Math.max(0, Math.min(100, pct));
+  marker.style.left = p + '%';
+  let label, color;
+  if(p >= 80){label='Extreme strength (overbought)'; color=CHART_COLORS.bull;}
+  else if(p >= 60){label='Strong breadth'; color=CHART_COLORS.bull;}
+  else if(p >= 40){label='Neutral / mixed'; color=CHART_COLORS.amber;}
+  else if(p >= 20){label='Weak breadth'; color=CHART_COLORS.bear;}
+  else {label='Extreme weakness (oversold)'; color=CHART_COLORS.bear;}
+  verdict.textContent = label + '  (' + p.toFixed(1) + ')';
+  verdict.style.color = color;
+}
+
+function lineChart(ctx, labels, datasets, opts={}){
+  return new Chart(ctx, {
+    type:'line',
+    data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{legend:{display: datasets.length>1, labels:{boxWidth:10, padding:12}}},
+      scales:{
+        x:{grid:{color:CHART_COLORS.grid}, ticks:{maxTicksLimit:8}},
+        y:{grid:{color:CHART_COLORS.grid}, ...opts.y}
+      },
+      elements:{point:{radius:0}, line:{tension:0.25, borderWidth:2}}
+    }
+  });
+}
+
+function barChart(ctx, labels, dataset){
+  return new Chart(ctx, {
+    type:'bar',
+    data:{labels, datasets:[dataset]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false}, ticks:{maxTicksLimit:8}},
+        y:{grid:{color:CHART_COLORS.grid}}
+      }
+    }
+  });
+}
+
+async function main(){
+  try{
+    const [series, snapshot] = await Promise.all([
+      loadJSON('./data/breadth_timeseries.json'),
+      loadJSON('./data/latest_snapshot.json')
+    ]);
+
+    if(!series.length){ throw new Error('breadth_timeseries.json is empty — no data yet.'); }
+
+    const recent = series.slice(-90); // last ~90 trading days on charts
+    const labels = recent.map(r=>r.date.slice(5)); // MM-DD
+
+    document.getElementById('asof-date').textContent = snapshot.date || series[series.length-1].date;
+    renderKPIs(snapshot.summary || series[series.length-1]);
+    renderGauge((snapshot.summary || series[series.length-1]).pct_above_50dma);
+
+    lineChart(document.getElementById('chart-dma'), labels, [
+      {label:'>50DMA', data:recent.map(r=>r.pct_above_50dma), borderColor:CHART_COLORS.bull},
+      {label:'>150DMA', data:recent.map(r=>r.pct_above_150dma), borderColor:CHART_COLORS.amber},
+      {label:'>200DMA', data:recent.map(r=>r.pct_above_200dma), borderColor:CHART_COLORS.bear},
+    ], {y:{min:0,max:100}});
+
+    lineChart(document.getElementById('chart-hilo'), labels, [
+      {label:'New Highs', data:recent.map(r=>r.new_highs_count), borderColor:CHART_COLORS.bull},
+      {label:'New Lows', data:recent.map(r=>r.new_lows_count), borderColor:CHART_COLORS.bear},
+    ]);
+
+    barChart(document.getElementById('chart-ad'), labels, {
+      label:'Advances − Declines',
+      data: recent.map(r => r.advances - r.declines),
+      backgroundColor: recent.map(r => (r.advances - r.declines) >= 0 ? CHART_COLORS.bull : CHART_COLORS.bear)
+    });
+
+    barChart(document.getElementById('chart-momentum'), labels, {
+      label:'Net ±4% movers',
+      data: recent.map(r => r.net_4pct),
+      backgroundColor: recent.map(r => r.net_4pct >= 0 ? CHART_COLORS.bull : CHART_COLORS.bear)
+    });
+
+    fillTable('tbl-gainers','cnt-gainers', snapshot.top_gainers || []);
+    fillTable('tbl-losers','cnt-losers', snapshot.top_losers || []);
+    fillTable('tbl-highs','cnt-highs', snapshot.new_highs || []);
+    fillTable('tbl-lows','cnt-lows', snapshot.new_lows || []);
+    fillTable('tbl-up4','cnt-up4', snapshot.up_4pct || []);
+    fillTable('tbl-down4','cnt-down4', snapshot.down_4pct || []);
+
+  } catch(err){
+    const banner = document.getElementById('error-banner');
+    banner.style.display = 'block';
+    banner.innerHTML = `Couldn't load breadth data yet (${err.message}). ` +
+      `If this is a brand-new setup, run <code>scripts/backfill.py</code> and trigger the ` +
+      `"Daily NSE Market Breadth" GitHub Action once manually — see README.md.`;
+    console.error(err);
+  }
+}
+
+main();
+</script>
+</body>
+</html>
