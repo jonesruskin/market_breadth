@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "date": "2026-07-22",
+    "total_symbols": 2685,
+    "advances": 686,
+    "declines": 1968,
+    "unchanged": 29,
+    "ad_ratio": 0.349,
+    "pct_above_50dma": 0.04,
+    "pct_above_150dma": 0.04,
+    "pct_above_200dma": null,
+    "new_highs_count": 78,
+    "new_lows_count": 57,
+    "up_4pct_count": 78,
+    "down_4pct_count": 126,
+    "net_4pct": -48,
+    "up_25pct_month_count": 61,
+    "down_25pct_month_count": 29,
+    "up_down_volume_ratio": 0.526
+  }
+]
