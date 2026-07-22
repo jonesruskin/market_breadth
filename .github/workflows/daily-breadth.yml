@@ -1,0 +1,37 @@
+name: Daily NSE Market Breadth
+
+on:
+  schedule:
+    # 11:15 UTC = 4:45 PM IST -- NSE cash market closes 3:30 PM IST,
+    # bhavcopy is usually published within ~30-60 min after close.
+    # Cron is UTC and Mon-Fri only; still skips Indian market holidays
+    # gracefully because compute_breadth.py aborts cleanly on a missing file.
+    - cron: "15 11 * * 1-5"
+  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  update-breadth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Compute today's breadth
+        run: python scripts/compute_breadth.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name "market-breadth-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/data/
+          git diff --cached --quiet && echo "No changes to commit" || git commit -m "Daily breadth update: $(date -u +%Y-%m-%d)"
+          git push
